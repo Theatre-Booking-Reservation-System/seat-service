@@ -152,8 +152,13 @@ def build_seats():
 
 
 def uuid_for_seat(idx):
-    # Deterministic seat UUID: b<8-hex-index>-...
+    # Deterministic seat UUID: b<...>-<12-digit-index>
     return f"b0000000-0000-0000-0000-{idx:012d}"
+
+
+def uuid_for_perf_seat(idx):
+    # Deterministic performance_seat UUID so inserts are idempotent on Postgres.
+    return f"d0000000-0000-0000-0000-{idx:012d}"
 
 
 PERFORMANCE_ID = "c0000000-0000-0000-0000-0000000000f1"
@@ -175,7 +180,8 @@ def main():
     for key, (zid, section, name, mat, eve) in ZONES.items():
         out.append(
             "INSERT INTO seat_zone (zone_id, section, zone_name, matinee_pct, evening_pct, added_by, added_date) "
-            f"VALUES ('{zid}', '{section}', '{sql_escape(name)}', {mat:.2f}, {eve:.2f}, 'admin', CURRENT_TIMESTAMP);"
+            f"VALUES ('{zid}', '{section}', '{sql_escape(name)}', {mat:.2f}, {eve:.2f}, 'admin', CURRENT_TIMESTAMP) "
+            "ON CONFLICT (zone_id) DO NOTHING;"
         )
     out.append("")
 
@@ -189,7 +195,8 @@ def main():
         wheelchair = "TRUE" if (section == "STALLS" and row in STALLS_REAR_ROWS and num == 1) else "FALSE"
         out.append(
             "INSERT INTO seat (seat_id, zone_id, section, row_label, seat_number, is_wheelchair_space, added_by, added_date) "
-            f"VALUES ('{seat_id}', '{zone_id}', '{section}', '{row}', {num}, {wheelchair}, 'admin', CURRENT_TIMESTAMP);"
+            f"VALUES ('{seat_id}', '{zone_id}', '{section}', '{row}', {num}, {wheelchair}, 'admin', CURRENT_TIMESTAMP) "
+            "ON CONFLICT (seat_id) DO NOTHING;"
         )
     out.append("")
 
@@ -197,18 +204,20 @@ def main():
     out.append(f"-- performance_id {PERFORMANCE_ID} -> demo performance")
     for idx, (section, row, num, zkey) in enumerate(seats, start=1):
         seat_id = uuid_for_seat(idx)
+        perf_seat_id = uuid_for_perf_seat(idx)
         # Seed most as AVAILABLE; make a small deterministic mix of BOOKED/HELD.
         if idx % 25 == 0:
             status, sess, held = "BOOKED", "NULL", "NULL"
         elif idx % 25 == 7:
             status = "HELD"
             sess = "'session-token-" + f"{idx:04d}" + "'"
-            held = "DATEADD('MINUTE', 15, CURRENT_TIMESTAMP)"
+            held = "CURRENT_TIMESTAMP + INTERVAL '15 minutes'"
         else:
             status, sess, held = "AVAILABLE", "NULL", "NULL"
         out.append(
             "INSERT INTO performance_seat (perf_seat_id, performance_id, seat_id, status, held_by_session, held_until, added_by, added_date) "
-            f"VALUES (RANDOM_UUID(), '{PERFORMANCE_ID}', '{seat_id}', '{status}', {sess}, {held}, 'admin', CURRENT_TIMESTAMP);"
+            f"VALUES ('{perf_seat_id}', '{PERFORMANCE_ID}', '{seat_id}', '{status}', {sess}, {held}, 'admin', CURRENT_TIMESTAMP) "
+            "ON CONFLICT (performance_id, seat_id) DO NOTHING;"
         )
     out.append("")
 
