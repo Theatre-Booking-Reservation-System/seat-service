@@ -2,15 +2,16 @@ package com.theatre.seatservice.service;
 
 import com.theatre.seatservice.model.PerformanceSeatItem;
 import com.theatre.seatservice.model.PerformanceSeatListResponse;
-import com.theatre.seatservice.repository.PerformanceSeatRepository;
-import com.theatre.seatservice.repository.model.PerformanceSeat;
+import com.theatre.seatservice.repository.SeatRepository;
 import com.theatre.seatservice.repository.model.Seat;
 import com.theatre.seatservice.repository.model.SeatZone;
+import com.theatre.seatservice.util.SeatStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -18,12 +19,16 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class PerformanceSeatService {
 
-    private final PerformanceSeatRepository performanceSeatRepository;
+    private final SeatRepository seatRepository;
+    private final BookingClient bookingClient;
 
-    public PerformanceSeatListResponse getSeatsByPerformanceId(UUID performanceId) {
-        List<PerformanceSeatItem> seats = performanceSeatRepository.findByPerformanceId(performanceId)
+    public PerformanceSeatListResponse getSeatsByPerformanceId(UUID performanceId, String bearerToken) {
+        Set<UUID> bookedSeatIds = bookingClient.getBookedSeatIds(performanceId, bearerToken);
+
+        List<PerformanceSeatItem> seats = seatRepository
+                .findAllByOrderBySectionAscRowLabelAscSeatNumberAsc()
                 .stream()
-                .map(this::toPerformanceSeatItem)
+                .map(seat -> toPerformanceSeatItem(seat, bookedSeatIds))
                 .toList();
 
         return PerformanceSeatListResponse.builder()
@@ -32,12 +37,13 @@ public class PerformanceSeatService {
                 .build();
     }
 
-    private PerformanceSeatItem toPerformanceSeatItem(PerformanceSeat performanceSeat) {
-        Seat seat = performanceSeat.getSeat();
+    private PerformanceSeatItem toPerformanceSeatItem(Seat seat, Set<UUID> bookedSeatIds) {
         SeatZone zone = seat.getZone();
+        SeatStatus status = bookedSeatIds.contains(seat.getSeatId())
+                ? SeatStatus.BOOKED
+                : SeatStatus.AVAILABLE;
 
         return PerformanceSeatItem.builder()
-                .perfSeatId(performanceSeat.getPerfSeatId())
                 .seatId(seat.getSeatId())
                 .zoneId(zone != null ? zone.getZoneId() : null)
                 .section(seat.getSection())
@@ -45,8 +51,7 @@ public class PerformanceSeatService {
                 .rowLabel(seat.getRowLabel())
                 .seatNumber(seat.getSeatNumber())
                 .wheelchairSpace(seat.getWheelchairSpace())
-                .status(performanceSeat.getStatus())
-                .heldUntil(performanceSeat.getHeldUntil())
+                .status(status)
                 .build();
     }
 }

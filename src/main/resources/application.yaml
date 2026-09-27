@@ -35,6 +35,11 @@ server:
 jwt:
   secret: DbPgxPEztADVNGoeXqh2WnPT1iPrTVcGJHc6qJOqG95
 
+# Downstream service clients
+clients:
+  booking:
+    base-url: ${BOOKING_BASE_URL:http://localhost:8084/booking-service}
+
 # OpenAPI / Swagger UI
 springdoc:
   api-docs:
