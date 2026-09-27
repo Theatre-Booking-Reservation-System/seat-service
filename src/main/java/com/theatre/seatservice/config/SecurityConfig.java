@@ -34,6 +34,9 @@ public class SecurityConfig {
                         // Public aggregate: total seat count (no sensitive data). Called by
                         // catalogue-service to compute performance availability for anonymous users.
                         .requestMatchers(HttpMethod.GET, "/seats/count").permitAll()
+                        // Public: seat map (with BOOKED/AVAILABLE status) for a performance.
+                        // No sensitive data - just seat labels and availability.
+                        .requestMatchers(HttpMethod.GET, "/performances/*/seats").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
