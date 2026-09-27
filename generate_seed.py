@@ -156,14 +156,6 @@ def uuid_for_seat(idx):
     return f"b0000000-0000-0000-0000-{idx:012d}"
 
 
-def uuid_for_perf_seat(idx):
-    # Deterministic performance_seat UUID so inserts are idempotent on Postgres.
-    return f"d0000000-0000-0000-0000-{idx:012d}"
-
-
-PERFORMANCE_ID = "c0000000-0000-0000-0000-0000000000f1"
-
-
 def sql_escape(s):
     return s.replace("'", "''")
 
@@ -200,26 +192,9 @@ def main():
         )
     out.append("")
 
-    out.append("-- ---------- Performance seats (soft ref to catalogue performance) ----------")
-    out.append(f"-- performance_id {PERFORMANCE_ID} -> demo performance")
-    for idx, (section, row, num, zkey) in enumerate(seats, start=1):
-        seat_id = uuid_for_seat(idx)
-        perf_seat_id = uuid_for_perf_seat(idx)
-        # Seed most as AVAILABLE; make a small deterministic mix of BOOKED/HELD.
-        if idx % 25 == 0:
-            status, sess, held = "BOOKED", "NULL", "NULL"
-        elif idx % 25 == 7:
-            status = "HELD"
-            sess = "'session-token-" + f"{idx:04d}" + "'"
-            held = "CURRENT_TIMESTAMP + INTERVAL '15 minutes'"
-        else:
-            status, sess, held = "AVAILABLE", "NULL", "NULL"
-        out.append(
-            "INSERT INTO performance_seat (perf_seat_id, performance_id, seat_id, status, held_by_session, held_until, added_by, added_date) "
-            f"VALUES ('{perf_seat_id}', '{PERFORMANCE_ID}', '{seat_id}', '{status}', {sess}, {held}, 'admin', CURRENT_TIMESTAMP) "
-            "ON CONFLICT (performance_id, seat_id) DO NOTHING;"
-        )
-    out.append("")
+    # NOTE: performance_seat is no longer seeded (or modelled). Seat availability
+    # for a performance is derived at query time by joining the reference seat
+    # table with the performance's bookings (fetched from booking-service).
 
     print("\n".join(out))
 

@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -30,6 +31,12 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         // OpenAPI / Swagger UI
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // Public aggregate: total seat count (no sensitive data). Called by
+                        // catalogue-service to compute performance availability for anonymous users.
+                        .requestMatchers(HttpMethod.GET, "/seats/count").permitAll()
+                        // Public: seat map (with BOOKED/AVAILABLE status) for a performance.
+                        // No sensitive data - just seat labels and availability.
+                        .requestMatchers(HttpMethod.GET, "/performances/*/seats").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

@@ -5,13 +5,11 @@ import com.theatre.seatservice.util.ZoneSection;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
 @Builder
 public class PerformanceSeatItem {
-    private UUID perfSeatId;
     private UUID seatId;
     private UUID zoneId;
     private ZoneSection section;
@@ -19,6 +17,7 @@ public class PerformanceSeatItem {
     private String rowLabel;
     private Short seatNumber;
     private Boolean wheelchairSpace;
+    // Derived by joining the reference seat with the performance's bookings:
+    // BOOKED when a confirmed/pending booking holds the seat, otherwise AVAILABLE.
     private SeatStatus status;
-    private LocalDateTime heldUntil;
 }
